@@ -7,9 +7,9 @@ const long int L = 10001;   // lattice side length (must be odd)
 const long int hl = 5000;   // half length -1
 
 struct posn { // position type: cells have this
-    int x;
-    int y;
-    int z;
+    long int x;
+    long int y;
+    long int z;
 
     posn& operator=(const posn& a)
     {
@@ -24,7 +24,7 @@ struct posn { // position type: cells have this
         return (posn){a.x+x, a.y+y, a.z+z};
     }
 
-    int operator[](int i) const
+    long int operator[](int i) const
     {
         switch (i)
         {
@@ -44,7 +44,7 @@ struct posn { // position type: cells have this
         }
     }
 
-    int &operator[](int i)
+    long int &operator[](int i)
     {
         switch (i)
         {

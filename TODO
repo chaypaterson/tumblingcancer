@@ -1,1 +1,3 @@
 todo: multiple runs + averaging
+
+todo: add replication, change mig rate to m < 1/dt
