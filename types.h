@@ -67,10 +67,24 @@ struct posn { // position type: cells have this
 
 long int index(posn xyz)    // make function converting posn to index
 {
-    long int IX = hl + xyz.x; // xyz[0]
+    long int IX;
+    IX = hl + xyz.x; // xyz[0]
     IX += L*(hl +xyz.y);
     IX += L*L*(hl+xyz.z);
+/*  long double IX = 3<<(xyz.x); // failed
+    IX *= 5<<(xyz.y);
+    IX *= 7<<(xyz.z);
+*/
+
     return IX;
+}
+
+bool operator==(const posn& a, const posn& b)
+{
+    bool isit = (a.x)==(b.x);
+    isit = isit && ((a.y)==(b.y));
+    isit = isit && ((a.z)==(b.z));
+    return isit;
 }
 
 bool operator<(const posn& left, const posn& right) 

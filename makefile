@@ -3,8 +3,8 @@ CC = g++
 SRC = tumblera.cpp
 BIN = tumblera
 
-FLAGS = -std=c++0x -Wall -O3
-PREFIX = ~/.locaL
+FLAGS = -std=c++11 -Wall -O3 -g
+PREFIX = ~/.local
 
 all: options tumblera
 
