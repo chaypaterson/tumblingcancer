@@ -81,7 +81,7 @@ long int index(posn xyz)    // make function converting posn to index
 
 bool operator==(const posn& a, const posn& b)
 {
-    bool isit = (a.x)==(b.x);
+    bool isit = ((a.x)==(b.x));
     isit = isit && ((a.y)==(b.y));
     isit = isit && ((a.z)==(b.z));
     return isit;
@@ -89,5 +89,6 @@ bool operator==(const posn& a, const posn& b)
 
 bool operator<(const posn& left, const posn& right) 
 {
-    return index(left) < index(right);
+    return ((left.x < right.x)&&(left.y < right.y)&&(left.z < right.z));
+    //return index(left) < index(right);
 }
