@@ -100,11 +100,11 @@ int main()
     set<posn> neighbours;   // set of neighbouring positions
     init_neigh(neighbours); // initialise neighbour set
 
-    double dt = 1;
+    int dt = 1;
     double alpha = 1;   // tumbling rate
-    double beta = 1; // growth rate
-    double rgw = 0;//0.1;  // switching rate
-    double rwg = 0.1;//10*rgw;   // reverse switching rate
+    double beta = 0.01; // growth rate
+    double rgw = 0.01;  // switching rate
+    double rwg = 10*rgw;   // reverse switching rate
 
     mt19937 gen((int)12345);         // seed rng
     uniform_real_distribution<> dis(0,1); // uniform distribution from 0 to 1.
@@ -128,13 +128,13 @@ int main()
     walkers.push_back(make_pair(location,polarity));
 
     // Simulation step flow:
-    for (double tt=0; tt<1000; tt+=dt)
+    for (int tt=0; tt<1000; tt+=dt)
     {   // dt = 1 for now.
 
     // Growth:
         for (auto p = surface.begin(); p != surface.end(); p++)
         {
-            if (1)// ( dis(gen) < beta*dt )
+            if ( dis(gen) < beta )
             {
                 int i = 0, ix = uds(gen);
                 for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
@@ -143,7 +143,6 @@ int main()
                     posn r = *p+*q;
                     if ((i == ix) && (growers.count(r)==0)) 
                     {   // if random neighbour position is unoccupied
-                        cout << i << endl;
                         newgrow.insert(r);
                         break;
                     }
@@ -151,17 +150,15 @@ int main()
             }
 
             // Type switching:
-            if ( dis(gen) < rgw*dt )
+            if ( dis(gen) < rgw )
             {   // remove a cell from growers and add to walkers
-                int i = 0, ix = uds(gen);
                 for (auto q = neighbours.begin(); q != neighbours.end(); q++)
                 {   // Choose random polarity
-                    i++;
-                    if (i == ix)
+                    int i = 0, ix = uds(gen);
+                    if ((i == ix) && (growers.count(*p)==0))
                     {
                         oldgrow.insert(*p); // mark for removal
                         walkers.push_back(make_pair(*p,*q));   // new walker
-                        break;
                     }
                 }
             }
@@ -170,7 +167,7 @@ int main()
     // Invasion:
         for (auto w = walkers.begin(); w != walkers.end(); w++)
         {
-            if ( dis(gen) < alpha*dt )
+            if ( dis(gen) < alpha )
             {   // tumbling:
                 int i = 0, ix = uds(gen);   // choose random neighbour
                 for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
@@ -191,17 +188,17 @@ int main()
                 int numws = walkers.size();
                 if (numws>0) numws = count(walkers.begin(),walkers.end(),make_pair(newsite,*q));
                 // also check newsite for non-motile fecund cells:
-                if ((numws>0) or (growers.count(newsite)>0) or (newgrow.count(newsite)>0))
+                if ((numws>0) or (growers.count(newsite)>0))
                 {   // if anything here, not available to move into.
                     clear = 0;
-                    //break;
+                    break;
                 }
             }
             // otherwise move to new site:
             if (clear) w->first = newsite;
 
             // Type switching:
-            if ( dis(gen) < rwg*dt )
+            if ( dis(gen) < rwg )
             {   // rwg ~= 100 rgw
                 // remove a cell from walkers and add to growers
                 newgrow.insert(w->first); //?
@@ -216,25 +213,19 @@ int main()
             growers.erase(*p);
             surface.erase(*p);    // and surface
         }
-        //cout << oldgrow.size() <<","<< oldwalk.size() <<",";
-        //cout << newgrow.size() << endl;
-        for (auto w = oldwalk.begin(); w != oldwalk.end(); w++)
-        {
-            walkers.erase(w);
-        }
+        // ^ could be: growers.erase(oldgrow.begin(),oldgrow.end()); //?
+        // Sort out walkers:
+        walkers.erase(oldwalk.begin(),oldwalk.end());
+
         // Add newcells to cells:
-        //growers.insert(newgrow.begin(), newgrow.end());
-        for (auto p = newgrow.begin(); p!= newgrow.end(); p++) //!
-        {
-            growers.insert(*p);
-            surface.insert(*p);
-        }
+        growers.insert(newgrow.begin(), newgrow.end());
+        // And to surface:
+        surface.insert(newgrow.begin(), newgrow.end());
         // Then empty these containers.
         newgrow.clear();
         oldgrow.clear();
         oldwalk.clear();
 
-// !
     // Statistics:
         // write means: // TODO populations and positions separately
         cout << tt <<",\t"<< walkers.size() <<",\t"<< growers.size() << endl;
