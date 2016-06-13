@@ -91,8 +91,8 @@ int main()
     int dt = 1;
     double alpha = 1;   // tumbling rate
     double beta = 0.1; // growth rate
-    double rgw = 0.1;  // switching rate
-    double rwg = 0.1;//10*rgw;   // reverse switching rate
+    double rgw = 0.01;  // grower-->walker switching rate
+    double rwg = 0.1;   // reverse switching rate
 
     mt19937 gen((int)12345);         // seed rng
     uniform_real_distribution<> dis(0,1); // uniform distribution from 0 to 1.
@@ -199,15 +199,19 @@ int main()
         }
 
     // Bookkeeping:        
-
-       // NEW
         walkers.insert(walkers.end(),newwalk.begin(), newwalk.end());
         newwalk.clear();
 
-        // Sort out walkers:
-            // Statistics:
+    // Statistics:
+        int fecund = 0;
+        for (auto w = walkers.begin(); w != walkers.end(); w++)
+        {
+            if (w->second==origin) fecund++;
+        }
+        int invasive = walkers.size()-fecund;
         // write means: // TODO populations and positions separately
         cout << tt <<",\t"<< walkers.size();
+        cout << ",\t" << fecund <<",\t"<< invasive;
         cout << endl;
     }
 
