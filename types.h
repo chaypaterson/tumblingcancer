@@ -87,6 +87,11 @@ bool operator==(const posn& a, const posn& b)
     return isit;
 }
 
+bool operator!=(const posn& a, const posn& b)
+{
+    return !(a==b);
+}
+
 bool operator<(const posn& left, const posn& right) 
 {
     return index(left) < index(right);

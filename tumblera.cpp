@@ -78,22 +78,10 @@ void init_neigh(set<posn>& ns)
     */
 }
 
-/*
-struct walker {
-    posn site;  // lattice site
-    posn plity; // cell polarity
-
-    bool operator<(const walker& left, const walker& right)
-    {
-        return index(left.site)<index(right.site);
-    }
-};
-*/ 
-
 int main()
 {   // Declarations and initialisations:
     // our walker should have a position and a velocity
-    posn location;
+    posn origin;
     posn polarity;
     
     // initialise "unit vectors"
@@ -102,133 +90,125 @@ int main()
 
     int dt = 1;
     double alpha = 1;   // tumbling rate
-    double beta = 0.01; // growth rate
-    double rgw = 0.01;  // switching rate
-    double rwg = 10*rgw;   // reverse switching rate
+    double beta = 0.1; // growth rate
+    double rgw = 0.1;  // switching rate
+    double rwg = 0.1;//10*rgw;   // reverse switching rate
 
     mt19937 gen((int)12345);         // seed rng
     uniform_real_distribution<> dis(0,1); // uniform distribution from 0 to 1.
     uniform_int_distribution<> uds(1,neighbours.size());
 
     // For GROWERS:
-    set<posn> growers;  // set of growing cells
-    set<posn> newgrow;  // cells to add
-    set<posn> oldgrow;  // cells to remove
-    set<posn> surface;  // iterator
 
-    // for WALKERS:
+    // NEW: one type of cell ONLY
     typedef pair<posn,posn> walker;
     vector<walker> walkers;     // iterator
-    vector<walker> oldwalk;     // walkers to remove
+    vector<walker> newwalk;     // walkers to add
 
     // initialise first cell: a walker:
-    location = (posn){0,0,0};   // cell at origin
+    origin = (posn){0,0,0};   // cell at origin
     polarity = (posn){1,0,0};   // cell faces +x
 
-    walkers.push_back(make_pair(location,polarity));
+    walkers.push_back(make_pair(origin,polarity));
 
     // Simulation step flow:
     for (int tt=0; tt<1000; tt+=dt)
     {   // dt = 1 for now.
 
-    // Growth:
-        for (auto p = surface.begin(); p != surface.end(); p++)
-        {
-            if ( dis(gen) < beta )
-            {
-                int i = 0, ix = uds(gen);
-                for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
-                {   // iterate over neighbours
-                    i++;
-                    posn r = *p+*q;
-                    if ((i == ix) && (growers.count(r)==0)) 
-                    {   // if random neighbour position is unoccupied
-                        newgrow.insert(r);
-                        break;
-                    }
-                }
-            }
-
-            // Type switching:
-            if ( dis(gen) < rgw )
-            {   // remove a cell from growers and add to walkers
-                for (auto q = neighbours.begin(); q != neighbours.end(); q++)
-                {   // Choose random polarity
-                    int i = 0, ix = uds(gen);
-                    if ((i == ix) && (growers.count(*p)==0))
-                    {
-                        oldgrow.insert(*p); // mark for removal
-                        walkers.push_back(make_pair(*p,*q));   // new walker
-                    }
-                }
-            }
-        }
-
     // Invasion:
         for (auto w = walkers.begin(); w != walkers.end(); w++)
         {
-            if ( dis(gen) < alpha )
-            {   // tumbling:
-                int i = 0, ix = uds(gen);   // choose random neighbour
-                for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
-                {   // choose random polarity
-                    i++;
-                    if (i == ix)
-                    {
-                        w->second = *q;
-                        break;
+            if (w->second!=origin)
+            {   // walkers:
+                if (dis(gen) < alpha)
+                {   // tumbling:
+                    int i = 0, ix = uds(gen);   // choose random neighbour
+                    for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
+                    {   // choose random polarity
+                        i++;
+                        if (i == ix)
+                        {
+                            w->second = *q;
+                            break;
+                        }
                     }
                 }
-            }
-            // only move if new location empty
-            posn newsite = w->first+w->second;
-            bool clear = 1;
-            for (auto q = neighbours.begin(); q != neighbours.end(); q++)
-            {   // check all polarities of this site.
-                int numws = walkers.size();
-                if (numws>0) numws = count(walkers.begin(),walkers.end(),make_pair(newsite,*q));
-                // also check newsite for non-motile fecund cells:
-                if ((numws>0) or (growers.count(newsite)>0))
-                {   // if anything here, not available to move into.
-                    clear = 0;
-                    break;
+                // only move if new location empty
+                posn newsite = w->first+w->second;
+                // TODO boilerplate!
+                int numws = 0;
+                for (auto q = neighbours.begin(); q != neighbours.end(); q++)
+                {   // check all polarities of this site.
+                    numws += count(walkers.begin(),walkers.end(),make_pair(newsite,*q));
+                    numws += count(newwalk.begin(),newwalk.end(),make_pair(newsite,*q));
                 }
-            }
-            // otherwise move to new site:
-            if (clear) w->first = newsite;
+                numws += count(newwalk.begin(),newwalk.end(),make_pair(newsite,origin));
+                numws += count(walkers.begin(),walkers.end(),make_pair(newsite,origin));
 
-            // Type switching:
-            if ( dis(gen) < rwg )
-            {   // rwg ~= 100 rgw
-                // remove a cell from walkers and add to growers
-                newgrow.insert(w->first); //?
-                oldwalk.push_back(*w);
+                // If so, move to new site:
+                if (numws==0) w->first = newsite;
+
+                // Type switching:
+                if (dis(gen) < rwg)
+                {   // rwg ~= 100 rgw
+                    // remove cell polarity
+                    w->second = origin;
+                }
+            } else {
+                // growers:
+                if (dis(gen) < beta)
+                {
+                    posn newsite;
+                    int i = 0, ix = uds(gen);   // choose random neighbour
+                    for (auto q = neighbours.begin(); q != neighbours.end(); q++)
+                    {   // get trial neighbouring site:
+                        i++;
+                        if (i == ix)
+                        {
+                            newsite = *q;
+                            break;
+                        }
+                    }
+                    // only divide if trial site free:
+                    int numws = 0;
+                    for (auto q = neighbours.begin(); q!= neighbours.end(); q++)
+                    {
+                        numws += count(walkers.begin(),walkers.end(),make_pair(newsite,*q));
+                        numws += count(newwalk.begin(),newwalk.end(),make_pair(newsite,*q));
+                    }
+                    numws += count(newwalk.begin(),newwalk.end(),make_pair(newsite,origin));
+                    numws += count(walkers.begin(),walkers.end(),make_pair(newsite,origin));
+                    
+                    if (numws==0) newwalk.push_back(make_pair(newsite,origin));
+                }
+
+                if (dis(gen) < rgw)
+                {   // add random polarity
+                    int i = 0, ix = uds(gen);
+                    for (auto q = neighbours.begin(); q != neighbours.end(); q++)
+                    {
+                        i++;
+                        if (i == ix)
+                        {
+                            w->second = *q;
+                            break;
+                        }
+                    }
+                }
             }
         }
 
     // Bookkeeping:        
-        // Sort out growers:
-        for (auto p = oldgrow.begin(); p != oldgrow.end(); p++)
-        {   //remove oldcells from cells:
-            growers.erase(*p);
-            surface.erase(*p);    // and surface
-        }
-        // ^ could be: growers.erase(oldgrow.begin(),oldgrow.end()); //?
+
+       // NEW
+        walkers.insert(walkers.end(),newwalk.begin(), newwalk.end());
+        newwalk.clear();
+
         // Sort out walkers:
-        walkers.erase(oldwalk.begin(),oldwalk.end());
-
-        // Add newcells to cells:
-        growers.insert(newgrow.begin(), newgrow.end());
-        // And to surface:
-        surface.insert(newgrow.begin(), newgrow.end());
-        // Then empty these containers.
-        newgrow.clear();
-        oldgrow.clear();
-        oldwalk.clear();
-
-    // Statistics:
+            // Statistics:
         // write means: // TODO populations and positions separately
-        cout << tt <<",\t"<< walkers.size() <<",\t"<< growers.size() << endl;
+        cout << tt <<",\t"<< walkers.size();
+        cout << endl;
     }
 
     return 0;
