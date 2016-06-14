@@ -78,6 +78,24 @@ void init_neigh(set<posn>& ns)
     */
 }
 
+bool isfree(vector<pair<posn,posn>> a, vector<pair<posn,posn>> b, posn site)
+{   // check is site is free from entries in a or b
+    set<posn> ns;
+    init_neigh(ns);
+    posn origin = (posn){0,0,0};
+
+    int numws = 0;
+    for (auto q = ns.begin(); q != ns.end(); q++)
+    {   // check all polarities of this site.
+        numws += count(a.begin(),a.end(),make_pair(site,*q));
+        numws += count(b.begin(),b.end(),make_pair(site,*q));
+    }
+    numws += count(a.begin(),a.end(),make_pair(site,origin));
+    numws += count(b.begin(),b.end(),make_pair(site,origin));
+    
+    return (numws==0);
+}
+
 int main()
 {   // Declarations and initialisations:
     // our walker should have a position and a velocity
@@ -88,7 +106,7 @@ int main()
     set<posn> neighbours;   // set of neighbouring positions
     init_neigh(neighbours); // initialise neighbour set
 
-    int dt = 1;
+    double dt = 0.1;
     double alpha = 1;   // tumbling rate
     double beta = 0.1; // growth rate
     double rgw = 0.01;  // grower-->walker switching rate
@@ -112,15 +130,14 @@ int main()
     walkers.push_back(make_pair(origin,polarity));
 
     // Simulation step flow:
-    for (int tt=0; tt<1000; tt+=dt)
+    for (double tt=0; tt<1000; tt+=dt)
     {   // dt = 1 for now.
-
     // Invasion:
         for (auto w = walkers.begin(); w != walkers.end(); w++)
-        {
+        {   // This is now the only structure.
             if (w->second!=origin)
             {   // walkers:
-                if (dis(gen) < alpha)
+                if (dis(gen) < alpha*dt)
                 {   // tumbling:
                     int i = 0, ix = uds(gen);   // choose random neighbour
                     for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
@@ -135,28 +152,18 @@ int main()
                 }
                 // only move if new location empty
                 posn newsite = w->first+w->second;
-                // TODO boilerplate!
-                int numws = 0;
-                for (auto q = neighbours.begin(); q != neighbours.end(); q++)
-                {   // check all polarities of this site.
-                    numws += count(walkers.begin(),walkers.end(),make_pair(newsite,*q));
-                    numws += count(newwalk.begin(),newwalk.end(),make_pair(newsite,*q));
-                }
-                numws += count(newwalk.begin(),newwalk.end(),make_pair(newsite,origin));
-                numws += count(walkers.begin(),walkers.end(),make_pair(newsite,origin));
-
                 // If so, move to new site:
-                if (numws==0) w->first = newsite;
+                if (isfree(walkers,newwalk,newsite)) w->first = newsite;
 
                 // Type switching:
-                if (dis(gen) < rwg)
+                if (dis(gen) < rwg*dt)
                 {   // rwg ~= 100 rgw
                     // remove cell polarity
                     w->second = origin;
                 }
             } else {
                 // growers:
-                if (dis(gen) < beta)
+                if (dis(gen) < beta*dt)
                 {
                     posn newsite;
                     int i = 0, ix = uds(gen);   // choose random neighbour
@@ -170,19 +177,10 @@ int main()
                         }
                     }
                     // only divide if trial site free:
-                    int numws = 0;
-                    for (auto q = neighbours.begin(); q!= neighbours.end(); q++)
-                    {
-                        numws += count(walkers.begin(),walkers.end(),make_pair(newsite,*q));
-                        numws += count(newwalk.begin(),newwalk.end(),make_pair(newsite,*q));
-                    }
-                    numws += count(newwalk.begin(),newwalk.end(),make_pair(newsite,origin));
-                    numws += count(walkers.begin(),walkers.end(),make_pair(newsite,origin));
-                    
-                    if (numws==0) newwalk.push_back(make_pair(newsite,origin));
+                    if (isfree(walkers,newwalk,newsite)) newwalk.push_back(make_pair(newsite,origin));
                 }
 
-                if (dis(gen) < rgw)
+                if (dis(gen) < rgw*dt)
                 {   // add random polarity
                     int i = 0, ix = uds(gen);
                     for (auto q = neighbours.begin(); q != neighbours.end(); q++)
@@ -203,17 +201,20 @@ int main()
         newwalk.clear();
 
     // Statistics:
-        int fecund = 0;
-        for (auto w = walkers.begin(); w != walkers.end(); w++)
+        if (fmod(tt,1.0) < 0.5*dt)
         {
-            if (w->second==origin) fecund++;
+            int fecund = 0;
+            for (auto w = walkers.begin(); w != walkers.end(); w++)
+            {
+                if (w->second==origin) fecund++;
+            }
+            int invasive = walkers.size()-fecund;
+            // write means: // TODO populations and positions separately
+            cout << tt <<",\t"<< walkers.size();
+            cout << ",\t" << fecund <<",\t"<< invasive;
+            cout << endl;
         }
-        int invasive = walkers.size()-fecund;
-        // write means: // TODO populations and positions separately
-        cout << tt <<",\t"<< walkers.size();
-        cout << ",\t" << fecund <<",\t"<< invasive;
-        cout << endl;
     }
 
     return 0;
-} 
+}
