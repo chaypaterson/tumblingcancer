@@ -97,7 +97,7 @@ bool isfree(vector<pair<posn,posn>> a, vector<pair<posn,posn>> b, posn site)
     // TODO this is O(N) and is called in an O(N) loop: bad! Improve speed.
 }
 
-int main()
+int main(int argc, char *argv[])
 {   // Declarations and initialisations:
     // our walker should have a position and a velocity
     posn origin;
@@ -114,7 +114,17 @@ int main()
     int steps = 10;     // speed multiplier (careful!)
     // True speed is = steps/dt
 
-    mt19937 gen((int)12345);         // seed rng
+    int seed;
+
+    if (argc == 0)
+    {   // preserve previous behaviour:
+        seed = 12345;
+    } else {
+        seed = atoi(argv[1]);
+    }
+
+    mt19937 gen(seed);  // seed rng
+
     uniform_real_distribution<> dis(0,1); // uniform distribution from 0 to 1.
     uniform_int_distribution<> uds(1,neighbours.size());
 
