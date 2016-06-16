@@ -94,40 +94,39 @@ bool isfree(vector<pair<posn,posn>> a, vector<pair<posn,posn>> b, posn site)
     numws += count(b.begin(),b.end(),make_pair(site,origin));
     
     return (numws==0);
+    // TODO this is O(N) and is called in an O(N) loop: bad! Improve speed.
 }
 
 int main()
 {   // Declarations and initialisations:
     // our walker should have a position and a velocity
     posn origin;
-    posn polarity;
     
     // initialise "unit vectors"
     set<posn> neighbours;   // set of neighbouring positions
     init_neigh(neighbours); // initialise neighbour set
 
-    double dt = 0.1;
+    double dt = 1;
     double alpha = 1;   // tumbling rate
     double beta = 0.1; // growth rate
     double rgw = 0.01;  // grower-->walker switching rate
     double rwg = 0.1;   // reverse switching rate
+    int steps = 10;     // speed multiplier (careful!)
+    // True speed is = steps/dt
 
     mt19937 gen((int)12345);         // seed rng
     uniform_real_distribution<> dis(0,1); // uniform distribution from 0 to 1.
     uniform_int_distribution<> uds(1,neighbours.size());
-
-    // For GROWERS:
 
     // NEW: one type of cell ONLY
     typedef pair<posn,posn> walker;
     vector<walker> walkers;     // iterator
     vector<walker> newwalk;     // walkers to add
 
-    // initialise first cell: a walker:
+    // initialise first cell: a grower:
     origin = (posn){0,0,0};   // cell at origin
-    polarity = (posn){1,0,0};   // cell faces +x
 
-    walkers.push_back(make_pair(origin,polarity));
+    walkers.push_back(make_pair(origin,origin));
 
     // Simulation step flow:
     for (double tt=0; tt<1000; tt+=dt)
@@ -137,23 +136,26 @@ int main()
         {   // This is now the only structure.
             if (w->second!=origin)
             {   // walkers:
-                if (dis(gen) < alpha*dt)
-                {   // tumbling:
-                    int i = 0, ix = uds(gen);   // choose random neighbour
-                    for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
-                    {   // choose random polarity
-                        i++;
-                        if (i == ix)
-                        {
-                            w->second = *q;
-                            break;
+                for (int i=0; i<steps; i++)
+                {   // migration
+                    if (dis(gen) < alpha*dt/(double)steps)
+                    {   // tumbling:
+                        int i = 0, ix = uds(gen);   // choose random neighbour
+                        for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
+                        {   // choose random polarity
+                            i++;
+                            if (i == ix)
+                            {
+                                w->second = *q;
+                                break;
+                            }
                         }
                     }
+                    // only move if new location empty
+                    posn newsite = w->first+w->second;
+                    // If so, move to new site:
+                    if (isfree(walkers,newwalk,newsite)) w->first = newsite;
                 }
-                // only move if new location empty
-                posn newsite = w->first+w->second;
-                // If so, move to new site:
-                if (isfree(walkers,newwalk,newsite)) w->first = newsite;
 
                 // Type switching:
                 if (dis(gen) < rwg*dt)
@@ -172,7 +174,7 @@ int main()
                         i++;
                         if (i == ix)
                         {
-                            newsite = *q;
+                            newsite = w->first+*q; // neighbour OF CURRENT POSITION
                             break;
                         }
                     }
@@ -201,7 +203,7 @@ int main()
         newwalk.clear();
 
     // Statistics:
-        if (fmod(tt,1.0) < 0.5*dt)
+        if (fmod(tt,1.00) < 1.5*dt)
         {
             int fecund = 0;
             for (auto w = walkers.begin(); w != walkers.end(); w++)
