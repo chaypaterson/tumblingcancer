@@ -4,7 +4,7 @@
 #include <fstream>
 #include <cmath>
 #include <set>
-#include <deque>
+#include <map>
 #include <algorithm>
 #include <random>
 #include <ctime>
@@ -52,18 +52,6 @@ double corrf(vector<posn> q)
     mean = mean/q.size();
 
     return mean;
-}
-
-int index(int x)
-{
-    int index;
-    if (x>=0) {
-        index = 2*x;
-    } else {
-        index = -2*x + 1;
-    }
-
-    return index;
 }
 
 // Custom types:
@@ -121,12 +109,12 @@ int main(int argc, char *argv[])
     set<posn> neighbours;   // set of neighbouring positions
     init_neigh(neighbours); // initialise neighbour set
 
-    double dt = 1;
-    double alpha = 1;   // tumbling rate
-    double beta = 0.1; // growth rate
-    double rgw = 0.01;  // grower-->walker switching rate
-    double rwg = 0.1;   // reverse switching rate
-    int steps = 10;     // speed multiplier (careful!)
+    double dt = 0.1;
+    double alpha = 100;   // tumbling rate
+    double beta = 1; // growth rate
+    double rgw = 0.001;  // grower-->walker switching rate
+    double rwg = 0.01;   // reverse switching rate
+    int steps = 1;     // speed multiplier (careful!)
     // True speed is = steps/dt
     
     // Initialise RNG:
@@ -145,24 +133,14 @@ int main(int argc, char *argv[])
     uniform_int_distribution<> uds(1,neighbours.size());
 
     // Container for cells
-    typedef pair<posn,posn> walker; // make tuple, with last entry a set of neighbour posns?
-    vector<walker> walkers;     // iterator
-    vector<walker> newwalk;     // walkers to add
-
-    // Lattice full marker:
-    int HLF = 0;
-    int LF = HLF*2+1;
-    int HLFx = HLF, HLFy = HLF, HLFz = HLF;
-    vector<int> vx(LF,0);
-    vector<vector<int>> vy(LF,vx);
-    vector<vector<vector<int>>> isfull(LF,vy);
+    map<posn, posn> walkers;
+    map<posn, posn> newwalk;
+    vector<posn> oldwalk;
 
     // initialise first cell: a grower:
     origin = (posn){0,0,0};   // cell at origin
-    walkers.push_back(make_pair(origin,origin));
+    walkers[origin] = origin;
 
-    isfull[HLFx+origin.x][HLFy+origin.y][HLFz+origin.z] = 1;
- 
     // Simulation step flow:
     for (double tt=0; tt<1000; tt+=dt)
     {
@@ -170,81 +148,58 @@ int main(int argc, char *argv[])
         {   // This is now the only structure.
             if (w->second!=origin)
             {   // walkers:
+                posn newsite = w->first; // position before migration:
+
                 for (int i=0; i<steps; i++)
                 {   // migration
-                    if (dis(gen) < alpha*dt/(double)steps)
+                    if (dis(gen) < 1-exp(-alpha*dt/(double)steps))
                     {   // tumbling:
-                        w->second = randnb(uds(gen),neighbours);
-                    }
-                    // calculate new position:
-                    posn newsite = w->first+w->second;
-
-                    // if out of bounds in isfull, extend isfull
-                    bool oob = false;
-                    if (index(newsite.x)>=(HLFx*2+1)) HLFx+=2; oob=true;
-                    if (index(newsite.y)>=(HLFy*2+1)) HLFy+=2; oob=true;
-                    if (index(newsite.z)>=(HLFz*2+1)) HLFz+=2; oob=true;
-                    if (oob)
-                    {
-                        isfull.resize(HLFx*2+1,vector<vector<int>>(HLFy*2+1,vector<int>(HLFz*2+1)));
+                        walkers[newsite] = randnb(uds(gen),neighbours);
                     }
 
                     // only move if new location empty
-                    if (!isfull[index(newsite.x)][index(newsite.y)][index(newsite.z)])
+                    if (walkers.count(newsite+w->second)==0)
                     {   // If so, move to new site:
-                        isfull[index((w->first).x)][index((w->first).y)][index((w->first).z)] = 0;
-                        w->first = newsite;
-                        isfull[index((w->first).x)][index((w->first).y)][index((w->first).z)] = 1;
+                        newwalk[newsite+w->second] = w->second; // keeping polarity
+                        oldwalk.push_back(newsite);     // mark for removal
+                        newsite = newsite+w->second;    // update site
                     }
                 }
 
                 // Type switching:
-                if (dis(gen) < rwg*dt)
-                {   // rwg ~= 100 rgw
-                    // remove cell polarity
-                    w->second = origin;
-                }
+                if (dis(gen) < 1-exp(-rwg*dt))
+                {   // remove cell polarity
+                    walkers[newsite] = origin;
+                } 
             } else {
                 // growers:
-                if (dis(gen) < beta*dt)
+                if (dis(gen) < 1-exp(-beta*dt))
                 {
                     posn newsite = w->first+randnb(uds(gen),neighbours);
 
-                    // if out of bounds in isfull, extend isfull
-                    bool oob = false;
-                    if (index(newsite.x)>=(HLFx*2+1)) HLFx+=2; oob=true;
-                    if (index(newsite.y)>=(HLFy*2+1)) HLFy+=2; oob=true;
-                    if (index(newsite.z)>=(HLFz*2+1)) HLFz+=2; oob=true;
-                    if (oob)
-                    {
-                        isfull.resize(HLFx*2+1,vector<vector<int>>(HLFy*2+1,vector<int>(HLFz*2+1)));
-                    }
-
-                    cout << HLFx*2+1 <<","<<HLFy*2+1<<","<<HLFz*2+1<<endl;
-                    cout <<newsite.x<<","<<newsite.y<<","<<newsite.z<<endl;
-                    cout <<index(newsite.x)<<","<<index(newsite.y)<<","<<index(newsite.z)<<endl;
-                    cout << isfull[index(0)][index(0)][index(0)]<<endl;
-                    cout << isfull.size()<<","<<isfull[1].size()<<","<<isfull[1].size()<<endl;
-                    cout <<isfull[index(newsite.x)][index(newsite.y)][index(newsite.z)]<<endl;
-
                     // only divide if trial site free:
-                    if (!isfull[index(newsite.x)][index(newsite.y)][index(newsite.z)])
+                    if (walkers.count(newsite)==0)
                     {
-                        newwalk.push_back(make_pair(newsite,origin));
-                        isfull[index((newsite).x)][index((newsite).y)][index((newsite).z)] = 1;
+                        newwalk[newsite]=origin;
                     }
                 }
 
-                if (dis(gen) < rgw*dt)
+                if (dis(gen) < 1-exp(-rgw*dt))
                 {   // add random polarity
-                    w->second = randnb(uds(gen),neighbours);
+                    walkers[w->first] = randnb(uds(gen),neighbours);
                 }
             }
         }
 
-    // Bookkeeping:        
-        walkers.insert(walkers.end(),newwalk.begin(), newwalk.end());
+    // Bookkeeping:       
+        walkers.insert(newwalk.begin(), newwalk.end());
         newwalk.clear();
+
+        for (auto q = oldwalk.begin(); q != oldwalk.end(); q++)
+        {   // should be O(log(walkers.size()))
+            if (walkers.count(*q)>0) walkers.erase(walkers.at(*q));
+        }
+        oldwalk.clear();
 
     // Statistics:
         if (fmod(tt,1.00) < 1.5*dt)
