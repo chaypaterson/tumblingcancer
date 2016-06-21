@@ -4,6 +4,7 @@
 #include <fstream>
 #include <cmath>
 #include <set>
+#include <deque>
 #include <algorithm>
 #include <random>
 #include <ctime>
@@ -16,6 +17,8 @@ using namespace std;
  * The polarity should also be a position.
  * This should output the MSD and trajectory of the walker.
  * */
+
+// Arithmetic functions:
 
 double sqd(posn r)
 {   // calculate square displacements
@@ -51,6 +54,20 @@ double corrf(vector<posn> q)
     return mean;
 }
 
+int index(int x)
+{
+    int index;
+    if (x>=0) {
+        index = 2*x;
+    } else {
+        index = -2*x + 1;
+    }
+
+    return index;
+}
+
+// Custom types:
+
 void init_neigh(set<posn>& ns)
 {   // intialize von neumann neighbourhoods:
     for (int i=0; i<3; i++)
@@ -78,23 +95,21 @@ void init_neigh(set<posn>& ns)
     */
 }
 
-bool isfree(vector<pair<posn,posn>> a, vector<pair<posn,posn>> b, posn site)
-{   // check is site is free from entries in a or b
-    set<posn> ns;
-    init_neigh(ns);
-    posn origin = (posn){0,0,0};
-
-    int numws = 0;
-    for (auto q = ns.begin(); q != ns.end(); q++)
-    {   // check all polarities of this site.
-        numws += count(a.begin(),a.end(),make_pair(site,*q));
-        numws += count(b.begin(),b.end(),make_pair(site,*q));
+posn randnb(int ix, set<posn> neighbours)
+{
+    int i = 0;   // choose random neighbour
+    posn randn;
+    for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
+    {   // choose random polarity
+        i++;
+        if (i == ix)
+        {
+            randn = *q;
+            break;
+        }
     }
-    numws += count(a.begin(),a.end(),make_pair(site,origin));
-    numws += count(b.begin(),b.end(),make_pair(site,origin));
-    
-    return (numws==0);
-    // TODO this is O(N) and is called in an O(N) loop: bad! Improve speed.
+
+    return randn;
 }
 
 int main(int argc, char *argv[])
@@ -113,10 +128,11 @@ int main(int argc, char *argv[])
     double rwg = 0.1;   // reverse switching rate
     int steps = 10;     // speed multiplier (careful!)
     // True speed is = steps/dt
-
+    
+    // Initialise RNG:
     int seed;
 
-    if (argc == 0)
+    if (argc == 1)
     {   // preserve previous behaviour:
         seed = 12345;
     } else {
@@ -128,20 +144,28 @@ int main(int argc, char *argv[])
     uniform_real_distribution<> dis(0,1); // uniform distribution from 0 to 1.
     uniform_int_distribution<> uds(1,neighbours.size());
 
-    // NEW: one type of cell ONLY
-    typedef pair<posn,posn> walker;
+    // Container for cells
+    typedef pair<posn,posn> walker; // make tuple, with last entry a set of neighbour posns?
     vector<walker> walkers;     // iterator
     vector<walker> newwalk;     // walkers to add
 
+    // Lattice full marker:
+    int HLF = 0;
+    int LF = HLF*2+1;
+    int HLFx = HLF, HLFy = HLF, HLFz = HLF;
+    vector<int> vx(LF,0);
+    vector<vector<int>> vy(LF,vx);
+    vector<vector<vector<int>>> isfull(LF,vy);
+
     // initialise first cell: a grower:
     origin = (posn){0,0,0};   // cell at origin
-
     walkers.push_back(make_pair(origin,origin));
 
+    isfull[HLFx+origin.x][HLFy+origin.y][HLFz+origin.z] = 1;
+ 
     // Simulation step flow:
     for (double tt=0; tt<1000; tt+=dt)
-    {   // dt = 1 for now.
-    // Invasion:
+    {
         for (auto w = walkers.begin(); w != walkers.end(); w++)
         {   // This is now the only structure.
             if (w->second!=origin)
@@ -150,21 +174,28 @@ int main(int argc, char *argv[])
                 {   // migration
                     if (dis(gen) < alpha*dt/(double)steps)
                     {   // tumbling:
-                        int i = 0, ix = uds(gen);   // choose random neighbour
-                        for (auto q = neighbours.begin(); q != neighbours.end(); q++) 
-                        {   // choose random polarity
-                            i++;
-                            if (i == ix)
-                            {
-                                w->second = *q;
-                                break;
-                            }
-                        }
+                        w->second = randnb(uds(gen),neighbours);
                     }
-                    // only move if new location empty
+                    // calculate new position:
                     posn newsite = w->first+w->second;
-                    // If so, move to new site:
-                    if (isfree(walkers,newwalk,newsite)) w->first = newsite;
+
+                    // if out of bounds in isfull, extend isfull
+                    bool oob = false;
+                    if (index(newsite.x)>=(HLFx*2+1)) HLFx+=2; oob=true;
+                    if (index(newsite.y)>=(HLFy*2+1)) HLFy+=2; oob=true;
+                    if (index(newsite.z)>=(HLFz*2+1)) HLFz+=2; oob=true;
+                    if (oob)
+                    {
+                        isfull.resize(HLFx*2+1,vector<vector<int>>(HLFy*2+1,vector<int>(HLFz*2+1)));
+                    }
+
+                    // only move if new location empty
+                    if (!isfull[index(newsite.x)][index(newsite.y)][index(newsite.z)])
+                    {   // If so, move to new site:
+                        isfull[index((w->first).x)][index((w->first).y)][index((w->first).z)] = 0;
+                        w->first = newsite;
+                        isfull[index((w->first).x)][index((w->first).y)][index((w->first).z)] = 1;
+                    }
                 }
 
                 // Type switching:
@@ -177,33 +208,36 @@ int main(int argc, char *argv[])
                 // growers:
                 if (dis(gen) < beta*dt)
                 {
-                    posn newsite;
-                    int i = 0, ix = uds(gen);   // choose random neighbour
-                    for (auto q = neighbours.begin(); q != neighbours.end(); q++)
-                    {   // get trial neighbouring site:
-                        i++;
-                        if (i == ix)
-                        {
-                            newsite = w->first+*q; // neighbour OF CURRENT POSITION
-                            break;
-                        }
+                    posn newsite = w->first+randnb(uds(gen),neighbours);
+
+                    // if out of bounds in isfull, extend isfull
+                    bool oob = false;
+                    if (index(newsite.x)>=(HLFx*2+1)) HLFx+=2; oob=true;
+                    if (index(newsite.y)>=(HLFy*2+1)) HLFy+=2; oob=true;
+                    if (index(newsite.z)>=(HLFz*2+1)) HLFz+=2; oob=true;
+                    if (oob)
+                    {
+                        isfull.resize(HLFx*2+1,vector<vector<int>>(HLFy*2+1,vector<int>(HLFz*2+1)));
                     }
+
+                    cout << HLFx*2+1 <<","<<HLFy*2+1<<","<<HLFz*2+1<<endl;
+                    cout <<newsite.x<<","<<newsite.y<<","<<newsite.z<<endl;
+                    cout <<index(newsite.x)<<","<<index(newsite.y)<<","<<index(newsite.z)<<endl;
+                    cout << isfull[index(0)][index(0)][index(0)]<<endl;
+                    cout << isfull.size()<<","<<isfull[1].size()<<","<<isfull[1].size()<<endl;
+                    cout <<isfull[index(newsite.x)][index(newsite.y)][index(newsite.z)]<<endl;
+
                     // only divide if trial site free:
-                    if (isfree(walkers,newwalk,newsite)) newwalk.push_back(make_pair(newsite,origin));
+                    if (!isfull[index(newsite.x)][index(newsite.y)][index(newsite.z)])
+                    {
+                        newwalk.push_back(make_pair(newsite,origin));
+                        isfull[index((newsite).x)][index((newsite).y)][index((newsite).z)] = 1;
+                    }
                 }
 
                 if (dis(gen) < rgw*dt)
                 {   // add random polarity
-                    int i = 0, ix = uds(gen);
-                    for (auto q = neighbours.begin(); q != neighbours.end(); q++)
-                    {
-                        i++;
-                        if (i == ix)
-                        {
-                            w->second = *q;
-                            break;
-                        }
-                    }
+                    w->second = randnb(uds(gen),neighbours);
                 }
             }
         }

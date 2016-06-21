@@ -71,10 +71,6 @@ long int index(posn xyz)    // make function converting posn to index
     IX = hl + xyz.x; // xyz[0]
     IX += L*(hl +xyz.y);
     IX += L*L*(hl+xyz.z);
-/*  long double IX = 3<<(xyz.x); // failed
-    IX *= 5<<(xyz.y);
-    IX *= 7<<(xyz.z);
-*/
 
     return IX;
 }
