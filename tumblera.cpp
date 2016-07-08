@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     init_neigh(neighbours); // initialise neighbour set
 
     double dt = 0.1;
-    double alpha = 100;   // tumbling rate
+    double alpha = 0;   // DEFAULT tumbling rate
     double beta = 1; // growth rate
     double rgw = 0.001;  // grower-->walker switching rate
     double rwg = 0.01;   // reverse switching rate
@@ -127,6 +127,17 @@ int main(int argc, char *argv[])
         seed = atoi(argv[1]);
     }
 
+    if (argc >= 3) alpha = atof(argv[2]);   // set alpha from command line
+    ofstream outfile;
+    if (argc >= 4)
+    {
+        outfile.open(argv[3]);
+    } else {
+        cout << "Error: no output file." << endl;
+        outfile.close();
+        exit(1);
+    }
+
     mt19937 gen(seed);  // seed rng
 
     uniform_real_distribution<> dis(0,1); // uniform distribution from 0 to 1.
@@ -141,6 +152,12 @@ int main(int argc, char *argv[])
     origin = (posn){0,0,0};   // cell at origin
     walkers[origin] = origin;
 
+    // Calculate probabilities:
+    double ptumb = 1-exp(-alpha*dt/(double)steps);
+    double pgrow = 1-exp(-beta*dt);
+    double pwg = 1-exp(-rwg*dt);
+    double pgw = 1-exp(-rgw*dt);
+
     // Simulation step flow:
     for (double tt=0; tt<1000; tt+=dt)
     {
@@ -152,7 +169,7 @@ int main(int argc, char *argv[])
 
                 for (int i=0; i<steps; i++)
                 {   // migration
-                    if (dis(gen) < 1-exp(-alpha*dt/(double)steps))
+                    if (dis(gen) < ptumb)
                     {   // tumbling:
                         walkers[newsite] = randnb(uds(gen),neighbours);
                     }
@@ -167,13 +184,13 @@ int main(int argc, char *argv[])
                 }
 
                 // Type switching:
-                if (dis(gen) < 1-exp(-rwg*dt))
+                if (dis(gen) < pwg)
                 {   // remove cell polarity
                     walkers[newsite] = origin;
                 } 
             } else {
                 // growers:
-                if (dis(gen) < 1-exp(-beta*dt))
+                if (dis(gen) < pgrow)
                 {
                     posn newsite = w->first+randnb(uds(gen),neighbours);
 
@@ -184,7 +201,7 @@ int main(int argc, char *argv[])
                     }
                 }
 
-                if (dis(gen) < 1-exp(-rgw*dt))
+                if (dis(gen) < pgw)
                 {   // add random polarity
                     walkers[w->first] = randnb(uds(gen),neighbours);
                 }
@@ -211,11 +228,13 @@ int main(int argc, char *argv[])
             }
             int invasive = walkers.size()-fecund;
             // write means: // TODO populations and positions separately
-            cout << tt <<",\t"<< walkers.size();
-            cout << ",\t" << fecund <<",\t"<< invasive;
-            cout << endl;
+            outfile << tt <<",\t"<< walkers.size();
+            outfile << ",\t" << fecund <<",\t"<< invasive;
+            outfile << endl;
         }
     }
+
+    outfile.close();
 
     return 0;
 }
