@@ -212,15 +212,11 @@ int main(int argc, char *argv[])
         walkers.insert(newwalk.begin(), newwalk.end());
         newwalk.clear();
 
-        cout << walkers.size() <<", "<<oldwalk.size()<<", ";
-
         for (auto q = oldwalk.begin(); q != oldwalk.end(); q++)
         {   // should be O(log(walkers.size()))
             walkers.erase(walkers.find(*q));
         }
         oldwalk.clear();
-
-        cout << walkers.size()<<", "<<oldwalk.size()<<endl;
 
     // Statistics:
         if (fmod(tt,1.00) < 1.5*dt)
