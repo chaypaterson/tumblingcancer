@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
     double dt = 0.1;
     double alpha = 0;   // DEFAULT tumbling rate
     double beta = 1; // growth rate
-    double rgw = 0.001;  // grower-->walker switching rate
+    double rgw = 0.0001;  // grower-->walker switching rate
     double rwg = 0.01;   // reverse switching rate
     int steps = 1;     // speed multiplier (careful!)
     // True speed is = steps/dt
@@ -212,11 +212,15 @@ int main(int argc, char *argv[])
         walkers.insert(newwalk.begin(), newwalk.end());
         newwalk.clear();
 
+        cout << walkers.size() <<", "<<oldwalk.size()<<", ";
+
         for (auto q = oldwalk.begin(); q != oldwalk.end(); q++)
         {   // should be O(log(walkers.size()))
-            if (walkers.count(*q)>0) walkers.erase(walkers.at(*q));
+            walkers.erase(walkers.find(*q));
         }
         oldwalk.clear();
+
+        cout << walkers.size()<<", "<<oldwalk.size()<<endl;
 
     // Statistics:
         if (fmod(tt,1.00) < 1.5*dt)
