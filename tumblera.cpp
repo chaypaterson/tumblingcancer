@@ -129,12 +129,16 @@ int main(int argc, char *argv[])
 
     if (argc >= 3) alpha = atof(argv[2]);   // set alpha from command line
     ofstream outfile;
+    ofstream visfile;
+
     if (argc >= 4)
     {
         outfile.open(argv[3]);
+        if (argc >= 5) visfile.open(argv[4]);
     } else {
         cout << "Error: no output file." << endl;
         outfile.close();
+        visfile.close();
         exit(1);
     }
 
@@ -208,9 +212,14 @@ int main(int argc, char *argv[])
             }
         }
 
-    // Bookkeeping:       
+    // Bookkeeping:
+        double growthrate = 0;
+        growthrate -= walkers.size();
         walkers.insert(newwalk.begin(), newwalk.end());
         newwalk.clear();
+
+        growthrate += walkers.size();
+        growthrate /= dt;
 
         for (auto q = oldwalk.begin(); q != oldwalk.end(); q++)
         {   // should be O(log(walkers.size()))
@@ -230,8 +239,16 @@ int main(int argc, char *argv[])
             // write means: // TODO populations and positions separately
             outfile << tt <<",\t"<< walkers.size();
             outfile << ",\t" << fecund <<",\t"<< invasive;
-            outfile << endl;
+            outfile << ",\t" << growthrate << endl;
         }
+    }
+
+    // TODO output shape/coordinates.
+    for (auto w = walkers.begin(); w != walkers.end(); w++)
+    {
+        visfile << (w->first).x <<", ";
+        visfile << (w->first).y <<", ";
+        visfile << (w->first).z <<endl;
     }
 
     outfile.close();
