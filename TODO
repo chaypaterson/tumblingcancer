@@ -1,12 +1,5 @@
 todo: multiple runs + averaging
 
-todo: add replication, change mig rate to m < 1/dt
-
-TODO: improve efficiency of site freedom check
-
-TODO!
-	make effect more dramatic
-	maybe incr. number of steps between switching by x10???
 visualisations
-long int --> int. unnecessary? BW
-LOCAL REFERENCE MAJOR REWRITE
+
+Iterate over surface ONLY

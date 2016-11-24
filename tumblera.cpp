@@ -158,6 +158,7 @@ int main(int argc, char *argv[])
 
     // Calculate probabilities:
     double ptumb = 1-exp(-alpha*dt/(double)steps);
+    if (alpha<0) ptumb = 1;
     double pgrow = 1-exp(-beta*dt);
     double pwg = 1-exp(-rwg*dt);
     double pgw = 1-exp(-rgw*dt);
