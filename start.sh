@@ -1,19 +1,16 @@
-#!/bin/bash
+#!/bin/sh
 # A sim starter
 
-DDIR=map/dt0.1
-EXEC=tumblera
+# Run script:
 
-for i in $(seq 0 10)
+DDIR=data
+EXEC=tumblera
+KEMT=3.16E-2-speed100
+
+echo "\n"
+
+for i in $(seq 0 4)
 do
-    alpha=$(echo "scale=2; 0.1*$i" | bc)
-    for k in $(seq 0 4)
-    do
-        for j in $(seq 0 4)
-        do
-            seed=$(echo "$k*4+$j" | bc)
-            nohup ./$EXEC $seed $alpha $DDIR/alpha$alpha-$j.dat &
-        done
-        wait
-    done
+    seed=$i
+    qsub -N kMET-$KEMT-$seed submit.sh $EXEC $seed 0.01 $DDIR/kMET-$KEMT-$seed.csv &
 done

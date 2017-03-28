@@ -113,8 +113,8 @@ int main(int argc, char *argv[])
     double alpha = 0;   // DEFAULT tumbling rate
     double beta = 1; // growth rate
     double rgw = 0.0001;  // grower-->walker switching rate
-    double rwg = 0.01;   // reverse switching rate
-    int steps = 1;     // speed multiplier (careful!)
+    double rwg = 0.00316;   // reverse switching rate
+    int steps = 10;     // speed multiplier (careful!)
     // True speed is = steps/dt
     
     // Initialise RNG:
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
     ofstream outfile;
     ofstream visfile;
 
-    if (argc >= 4)
+    if (argc >= 4) // read file names
     {
         outfile.open(argv[3]);
         if (argc >= 5) visfile.open(argv[4]);
@@ -156,6 +156,9 @@ int main(int argc, char *argv[])
     origin = (posn){0,0,0};   // cell at origin
     walkers[origin] = origin;
 
+    int population = 1; // NEW: track simulation progress.
+    double tt = 0;
+
     // Calculate probabilities:
     double ptumb = 1-exp(-alpha*dt/(double)steps);
     if (alpha<0) ptumb = 1;
@@ -164,7 +167,7 @@ int main(int argc, char *argv[])
     double pgw = 1-exp(-rgw*dt);
 
     // Simulation step flow:
-    for (double tt=0; tt<1000; tt+=dt)
+    while (population<1.5E8)
     {
         for (auto w = walkers.begin(); w != walkers.end(); w++)
         {   // This is now the only structure.
@@ -180,7 +183,10 @@ int main(int argc, char *argv[])
                     }
 
                     // only move if new location empty
-                    if (walkers.count(newsite+w->second)==0)
+                    // NB also check newwalk, otherwise collisions between
+                    // walkers will result in sites being added to oldwalk
+                    // twice (V V BAD)
+                    if ((walkers.count(newsite+w->second)==0)&&(newwalk.count(newsite+w->second)==0))
                     {   // If so, move to new site:
                         newwalk[newsite+w->second] = w->second; // keeping polarity
                         oldwalk.push_back(newsite);     // mark for removal
@@ -213,7 +219,7 @@ int main(int argc, char *argv[])
             }
         }
 
-    // Bookkeeping:
+        // Bookkeeping:
         double growthrate = 0;
         growthrate -= walkers.size();
         walkers.insert(newwalk.begin(), newwalk.end());
@@ -228,29 +234,35 @@ int main(int argc, char *argv[])
         }
         oldwalk.clear();
 
-    // Statistics:
+        // Statistics:
         if (fmod(tt,1.00) < 1.5*dt)
         {
+            population = walkers.size();
+
             int fecund = 0;
             for (auto w = walkers.begin(); w != walkers.end(); w++)
             {
                 if (w->second==origin) fecund++;
             }
-            int invasive = walkers.size()-fecund;
+            int invasive = population-fecund;
             // write means: // TODO populations and positions separately
-            outfile << tt <<",\t"<< walkers.size();
+            outfile << tt <<",\t"<< population;
             outfile << ",\t" << fecund <<",\t"<< invasive;
             outfile << ",\t" << growthrate << endl;
         }
+
+        tt += dt;
     }
 
     // TODO output shape/coordinates.
+    /* not currently used
     for (auto w = walkers.begin(); w != walkers.end(); w++)
     {
         visfile << (w->first).x <<", ";
         visfile << (w->first).y <<", ";
         visfile << (w->first).z <<endl;
     }
+    */
 
     outfile.close();
 
