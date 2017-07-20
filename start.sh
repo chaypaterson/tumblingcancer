@@ -3,14 +3,14 @@
 
 # Run script:
 
-DDIR=data
+DDIR=data/Veffect_kEMT-1e-4_kMET-1e-2
 EXEC=tumblera
-KEMT=3.16E-2-speed100
+KEMT=30
 
 echo "\n"
 
-for i in $(seq 0 4)
+for i in $(seq 0 9)
 do
     seed=$i
-    qsub -N kMET-$KEMT-$seed submit.sh $EXEC $seed 0.01 $DDIR/kMET-$KEMT-$seed.csv &
+    qsub -N V-$KEMT-$seed submit.sh $EXEC $seed 0.01 $DDIR/V-$KEMT-$seed.csv &
 done

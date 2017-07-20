@@ -113,8 +113,8 @@ int main(int argc, char *argv[])
     double alpha = 0;   // DEFAULT tumbling rate
     double beta = 1; // growth rate
     double rgw = 0.0001;  // grower-->walker switching rate
-    double rwg = 0.00316;   // reverse switching rate
-    int steps = 10;     // speed multiplier (careful!)
+    double rwg = 0.01;   // reverse switching rate
+    int steps = 3;     // speed multiplier (careful!)
     // True speed is = steps/dt
     
     // Initialise RNG:
@@ -184,12 +184,13 @@ int main(int argc, char *argv[])
 
                     // only move if new location empty
                     // NB also check newwalk, otherwise collisions between
-                    // walkers will result in sites being added to oldwalk
-                    // twice (V V BAD)
+                    // walkers may result
                     if ((walkers.count(newsite+w->second)==0)&&(newwalk.count(newsite+w->second)==0))
                     {   // If so, move to new site:
                         newwalk[newsite+w->second] = w->second; // keeping polarity
                         oldwalk.push_back(newsite);     // mark for removal
+                        // NB: this may result in multiple entries in oldwalk
+                        // for the same site, but checking beforehand is slow, O(N)
                         newsite = newsite+w->second;    // update site
                     }
                 }
@@ -230,7 +231,8 @@ int main(int argc, char *argv[])
 
         for (auto q = oldwalk.begin(); q != oldwalk.end(); q++)
         {   // should be O(log(walkers.size()))
-            walkers.erase(walkers.find(*q));
+            // WARNING: test if cell to be deleted is already in walkers
+            if (walkers.count(*q)) walkers.erase(walkers.find(*q));
         }
         oldwalk.clear();
 
