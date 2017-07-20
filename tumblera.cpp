@@ -109,12 +109,12 @@ int main(int argc, char *argv[])
     set<posn> neighbours;   // set of neighbouring positions
     init_neigh(neighbours); // initialise neighbour set
 
-    double dt = 0.1;
+    double dt = 1;
     double alpha = 0;   // DEFAULT tumbling rate
-    double beta = 1; // growth rate
+    double beta = 0; // growth rate
     double rgw = 0.0001;  // grower-->walker switching rate
-    double rwg = 0.01;   // reverse switching rate
-    int steps = 3;     // speed multiplier (careful!)
+    double rwg = 0;   // reverse switching rate
+    int steps = 1;     // speed multiplier (careful!)
     // True speed is = steps/dt
     
     // Initialise RNG:
@@ -152,9 +152,9 @@ int main(int argc, char *argv[])
     map<posn, posn> newwalk;
     vector<posn> oldwalk;
 
-    // initialise first cell: a grower:
+    // initialise first cell: a walker:
     origin = (posn){0,0,0};   // cell at origin
-    walkers[origin] = origin;
+    walkers[origin] = (posn){1,0,0};
 
     int population = 1; // NEW: track simulation progress.
     double tt = 0;
@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
     double pgw = 1-exp(-rgw*dt);
 
     // Simulation step flow:
-    while (population<1.5E8)
+    while (tt<1000)//(population<1.5E8)
     {
         for (auto w = walkers.begin(); w != walkers.end(); w++)
         {   // This is now the only structure.
@@ -239,6 +239,7 @@ int main(int argc, char *argv[])
         // Statistics:
         if (fmod(tt,1.00) < 1.5*dt)
         {
+            /*
             population = walkers.size();
 
             int fecund = 0;
@@ -251,6 +252,14 @@ int main(int argc, char *argv[])
             outfile << tt <<",\t"<< population;
             outfile << ",\t" << fecund <<",\t"<< invasive;
             outfile << ",\t" << growthrate << endl;
+            */
+            for (auto cell = walkers.begin(); cell != walkers.end(); cell++)
+            {
+                outfile << (cell->first).x <<", ";
+                outfile << (cell->first).y <<", ";
+                outfile << (cell->first).z <<", ";
+                outfile << tt <<", "<< sqd(cell->first) << endl;// SQDISP
+            }
         }
 
         tt += dt;
