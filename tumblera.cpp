@@ -102,22 +102,22 @@ posn randnb(int ix, set<posn> neighbours)
 
 int main(int argc, char *argv[])
 {   // Declarations and initialisations:
-    // our walker should have a position and a velocity
+    // our first walker should have a position and a velocity
     posn origin;
     
     // initialise "unit vectors"
     set<posn> neighbours;   // set of neighbouring positions
     init_neigh(neighbours); // initialise neighbour set
 
+    // declare constants
     double dt = 1;
     double alpha = 0;   // DEFAULT tumbling rate
     double beta = 0; // growth rate
     double rgw = 0.0001;  // grower-->walker switching rate
     double rwg = 0;   // reverse switching rate
-    int steps = 1;     // speed multiplier (careful!)
+    int steps = 1;     // "speed" (careful! this is an INTEGER)
     // True speed is = steps/dt
     
-    // Initialise RNG:
     int seed;
 
     if (argc == 1)
@@ -142,7 +142,14 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    mt19937 gen(seed);  // seed rng
+    // Declare data write mode:
+    int WritePop = 0;
+    int WriteSQD = 1;
+    int WriteShape = 0;
+    // TODO check that only one of these is 1.
+
+    // Initialise RNG
+    mt19937 gen(seed);  // seed RNG
 
     uniform_real_distribution<> dis(0,1); // uniform distribution from 0 to 1.
     uniform_int_distribution<> uds(1,neighbours.size());
@@ -240,19 +247,25 @@ int main(int argc, char *argv[])
         if (fmod(tt,1.00) < 1.5*dt)
         {
             /*
-            population = walkers.size();
+            // Store all POPULATION and SUBPOPULATION data
+            if (WritePop) {
+                population = walkers.size();
 
-            int fecund = 0;
-            for (auto w = walkers.begin(); w != walkers.end(); w++)
-            {
-                if (w->second==origin) fecund++;
+                int fecund = 0;
+                for (auto w = walkers.begin(); w != walkers.end(); w++)
+                {
+                    if (w->second==origin) fecund++;
+                }
+                int invasive = population-fecund;
+                // write means: // TODO populations and positions separately
+                outfile << tt <<",\t"<< population;
+                outfile << ",\t" << fecund <<",\t"<< invasive;
+                outfile << ",\t" << growthrate << endl;
             }
-            int invasive = population-fecund;
-            // write means: // TODO populations and positions separately
-            outfile << tt <<",\t"<< population;
-            outfile << ",\t" << fecund <<",\t"<< invasive;
-            outfile << ",\t" << growthrate << endl;
             */
+            //if (WriteSQD) {
+            // TODO test output is the same
+            // Store ALL position data and square displacements
             for (auto cell = walkers.begin(); cell != walkers.end(); cell++)
             {
                 outfile << (cell->first).x <<", ";
@@ -260,6 +273,7 @@ int main(int argc, char *argv[])
                 outfile << (cell->first).z <<", ";
                 outfile << tt <<", "<< sqd(cell->first) << endl;// SQDISP
             }
+            //}
         }
 
         tt += dt;
@@ -267,11 +281,13 @@ int main(int argc, char *argv[])
 
     // TODO output shape/coordinates.
     /* not currently used
-    for (auto w = walkers.begin(); w != walkers.end(); w++)
-    {
-        visfile << (w->first).x <<", ";
-        visfile << (w->first).y <<", ";
-        visfile << (w->first).z <<endl;
+    if (WriteShape) {
+        for (auto w = walkers.begin(); w != walkers.end(); w++)
+        {
+            visfile << (w->first).x <<", ";
+            visfile << (w->first).y <<", ";
+            visfile << (w->first).z <<endl;
+        }
     }
     */
 
