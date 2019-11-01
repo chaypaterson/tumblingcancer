@@ -67,7 +67,10 @@ void init_neigh(set<posn>& ns)
             ns.insert(foo);
         }
     } 
-    /*
+}
+
+void init_moore(set<posn>& ns)
+{
     for (int i=-1; i<=1; i++)
     {   // initialize moore neighbourhoods:
         for (int j=-1; j<=1; j++)
@@ -80,7 +83,6 @@ void init_neigh(set<posn>& ns)
     }
 
     ns.erase((posn){0,0,0}); // do not include origin as neighbour
-    */
 }
 
 posn randnb(int ix, set<posn> neighbours)
@@ -115,13 +117,14 @@ int main(int argc, char *argv[])
     double beta = 0; // growth rate
     double rgw = 0.0001;  // grower-->walker switching rate
     double rwg = 0;   // reverse switching rate
-    int steps = 1;     // "speed" (careful! this is an INTEGER)
+    int steps = 1;     // "speed" multiplier (careful! this is an INTEGER)
     // True speed is = steps/dt
     
     int seed;
 
     if (argc == 1)
-    {   // preserve previous behaviour:
+    {   // reproduce previous behaviour:
+        // if no seed is specified, use the default.
         seed = 12345;
     } else {
         seed = atoi(argv[1]);
@@ -143,10 +146,27 @@ int main(int argc, char *argv[])
     }
 
     // Declare data write mode:
+    bool WritePaths = 0;
+    // These should be mutually exclusive:
     int WritePop = 0;
     int WriteSQD = 1;
     int WriteShape = 0;
-    // TODO check that only one of these is 1.
+    // So we should check that only one of these is 1.
+    //
+    // At this point, we might normally initialise a bool, then run a logical
+    // test before assigning it as follows:
+    //
+    // bool nModeSet = 0;
+    // if ((WritePop+WriteSQD+WriteShape)==1){
+    //     nModeSet = 1;
+    // } 
+    // 
+    // But because the logical test also returns the same type as the variable
+    // we want to set, we can simply write:
+
+    bool nModeSet = ((WritePop+WriteSQD+WriteShape)==1);
+
+    // and achieve exactly the same outcome.
 
     // Initialise RNG
     mt19937 gen(seed);  // seed RNG
@@ -173,114 +193,123 @@ int main(int argc, char *argv[])
     double pwg = 1-exp(-rwg*dt);
     double pgw = 1-exp(-rgw*dt);
 
-    // Simulation step flow:
-    while (tt<1000)//(population<1.5E8)
-    {
-        for (auto w = walkers.begin(); w != walkers.end(); w++)
-        {   // This is now the only structure.
-            if (w->second!=origin)
-            {   // walkers:
-                posn newsite = w->first; // position before migration:
-
-                for (int i=0; i<steps; i++)
-                {   // migration
-                    if (dis(gen) < ptumb)
-                    {   // tumbling:
-                        walkers[newsite] = randnb(uds(gen),neighbours);
-                    }
-
-                    // only move if new location empty
-                    // NB also check newwalk, otherwise collisions between
-                    // walkers may result
-                    if ((walkers.count(newsite+w->second)==0)&&(newwalk.count(newsite+w->second)==0))
-                    {   // If so, move to new site:
-                        newwalk[newsite+w->second] = w->second; // keeping polarity
-                        oldwalk.push_back(newsite);     // mark for removal
-                        // NB: this may result in multiple entries in oldwalk
-                        // for the same site, but checking beforehand is slow, O(N)
-                        newsite = newsite+w->second;    // update site
-                    }
-                }
-
-                // Type switching:
-                if (dis(gen) < pwg)
-                {   // remove cell polarity
-                    walkers[newsite] = origin;
-                } 
-            } else {
-                // growers:
-                if (dis(gen) < pgrow)
-                {
-                    posn newsite = w->first+randnb(uds(gen),neighbours);
-
-                    // only divide if trial site free:
-                    if (walkers.count(newsite)==0)
-                    {
-                        newwalk[newsite]=origin;
-                    }
-                }
-
-                if (dis(gen) < pgw)
-                {   // add random polarity
-                    walkers[w->first] = randnb(uds(gen),neighbours);
-                }
-            }
-        }
-
-        // Bookkeeping:
-        double growthrate = 0;
-        growthrate -= walkers.size();
-        walkers.insert(newwalk.begin(), newwalk.end());
-        newwalk.clear();
-
-        growthrate += walkers.size();
-        growthrate /= dt;
-
-        for (auto q = oldwalk.begin(); q != oldwalk.end(); q++)
-        {   // should be O(log(walkers.size()))
-            // WARNING: test if cell to be deleted is already in walkers
-            if (walkers.count(*q)) walkers.erase(walkers.find(*q));
-        }
-        oldwalk.clear();
-
-        // Statistics:
-        if (fmod(tt,1.00) < 1.5*dt)
+    if (nModeSet) {
+        // Simulation step flow:
+        while (tt<1000) // previously: while(population<1.5E8)
         {
-            /*
-            // Store all POPULATION and SUBPOPULATION data
-            if (WritePop) {
-                population = walkers.size();
+            for (auto w = walkers.begin(); w != walkers.end(); w++)
+            {   // This is now the only structure.
+                if (w->second!=origin)
+                {   // walkers:
+                    posn newsite = w->first; // position before migration:
 
-                int fecund = 0;
-                for (auto w = walkers.begin(); w != walkers.end(); w++)
-                {
-                    if (w->second==origin) fecund++;
+                    for (int i=0; i<steps; i++)
+                    {   // migration
+                        if (dis(gen) < ptumb)
+                        {   // tumbling:
+                            walkers[newsite] = randnb(uds(gen),neighbours);
+                        }
+
+                        // only move if new location empty
+                        // NB also check newwalk, otherwise collisions between
+                        // walkers may result
+                        if ((walkers.count(newsite+w->second)==0)&&(newwalk.count(newsite+w->second)==0))
+                        {   // If so, move to new site:
+                            newwalk[newsite+w->second] = w->second; // keeping polarity
+                            oldwalk.push_back(newsite);     // mark for removal
+                            // NB: this may result in multiple entries in oldwalk
+                            // for the same site, but checking beforehand is slow, O(N)
+                            newsite = newsite+w->second;    // update site
+                        }
+                    }
+
+                    // Type switching:
+                    if (dis(gen) < pwg)
+                    {   // remove cell polarity
+                        walkers[newsite] = origin;
+                    } 
+                } else {
+                    // growers:
+                    if (dis(gen) < pgrow)
+                    {
+                        posn newsite = w->first+randnb(uds(gen),neighbours);
+
+                        // only divide if trial site free:
+                        if (walkers.count(newsite)==0)
+                        {
+                            newwalk[newsite]=origin;
+                        }
+                    }
+
+                    if (dis(gen) < pgw)
+                    {   // add random polarity
+                        walkers[w->first] = randnb(uds(gen),neighbours);
+                    }
                 }
-                int invasive = population-fecund;
-                // write means: // TODO populations and positions separately
-                outfile << tt <<",\t"<< population;
-                outfile << ",\t" << fecund <<",\t"<< invasive;
-                outfile << ",\t" << growthrate << endl;
             }
-            */
-            //if (WriteSQD) {
-            // TODO test output is the same
-            // Store ALL position data and square displacements
-            for (auto cell = walkers.begin(); cell != walkers.end(); cell++)
-            {
-                outfile << (cell->first).x <<", ";
-                outfile << (cell->first).y <<", ";
-                outfile << (cell->first).z <<", ";
-                outfile << tt <<", "<< sqd(cell->first) << endl;// SQDISP
-            }
-            //}
-        }
 
-        tt += dt;
+            // Bookkeeping:
+            double growthrate = 0;
+            growthrate -= walkers.size();
+            walkers.insert(newwalk.begin(), newwalk.end());
+            newwalk.clear();
+
+            growthrate += walkers.size();
+            growthrate /= dt;
+
+            for (auto q = oldwalk.begin(); q != oldwalk.end(); q++)
+            {   // should be O(log(walkers.size()))
+                // test if cell to be deleted is already in walkers first
+                if (walkers.count(*q)) walkers.erase(walkers.find(*q));
+            }
+            oldwalk.clear();
+
+            // Statistics:
+            if (fmod(tt,1.00) < 1.5*dt)
+            {
+                // Store all POPULATION and SUBPOPULATION data
+                if (WritePop) {
+                    population = walkers.size();
+
+                    int fecund = 0;
+                    for (auto w = walkers.begin(); w != walkers.end(); w++)
+                    {
+                        if (w->second==origin) fecund++;
+                    }
+                    int invasive = population-fecund;
+                    // write means: // TODO populations and positions in
+                    // separate files/parts of database
+                    outfile << tt <<",\t"<< population;
+                    outfile << ",\t" << fecund <<",\t"<< invasive;
+                    outfile << ",\t" << growthrate << endl;
+                }
+
+                if (WriteSQD) {
+                    // Store ALL position data and square displacements
+                    for (auto cell = walkers.begin(); cell != walkers.end(); cell++)
+                    {
+                        if (WritePaths) {
+                            // track trajectories of individual cells:
+                            outfile << (cell->first).x <<", ";
+                            outfile << (cell->first).y <<", ";
+                            outfile << (cell->first).z <<", ";
+                        }
+
+                        outfile << tt <<", "<< sqd(cell->first) << endl;// SQDISP
+                    }
+                }
+            }
+
+            tt += dt;
+        }
+    } else {
+        cout << "Error: wrong number of data-write modes set." << endl;
+        cout << "Please check only one type";
+        cout << " of data is being asked for." << endl;
+        exit(1);
     }
 
-    // TODO output shape/coordinates.
-    /* not currently used
+    // output final shape/coordinates.
     if (WriteShape) {
         for (auto w = walkers.begin(); w != walkers.end(); w++)
         {
@@ -289,7 +318,6 @@ int main(int argc, char *argv[])
             visfile << (w->first).z <<endl;
         }
     }
-    */
 
     outfile.close();
 
